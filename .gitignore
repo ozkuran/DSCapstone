@@ -214,3 +214,12 @@ pip-log.txt
 
 #Mr Developer
 .mr.developer.cfg
+
+##############
+## RStudio
+##############
+
+.RData
+final/
+milestone_cache/
+milestone_files/

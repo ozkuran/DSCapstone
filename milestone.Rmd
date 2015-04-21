@@ -1,0 +1,160 @@
+---
+title: "Data Science Capstone Milestone Report on Text Mining and Text Prediction on Swiftkey Datasets"
+author: "Mahmut Ali ÖZKURAN"
+date: "Friday, March 27, 2015"
+output: html_document
+---
+
+##I. Synopsis
+
+This report is about Natural Language Processing project which developed as Capstone for Johns Hopkins Data Science Specialization. The NLP project is developed on SwiftKey dataset which may be found at [here](https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip). File is included *German*, *English*, *Finnish* and *Russian*; blog, news and twitter datasets. We have used *English* dataset of those to develop a text prediction application.
+
+##II. Preparation
+
+Data files is donwloaded from given link and unzipped at working directory.
+
+Some required libraries loaded at start.
+
+```{r libraries, warning=FALSE, cache=TRUE}
+library(stringi)    # Character String Processing Facilities (general data information, word count etc..)
+library(ggplot2)    # An Implementation of the Grammar of Graphics (visualization of data)
+library(NLP)        # NLP infrastructure
+library(tm)         # Text Mining Package (text mining tools)
+library(RWeka)      # R/Weka interface (machine learning algorithms)
+```
+
+
+###i. Loading Data
+
+Files loaded to the variables using functions below.
+
+```{r loadData, warning=FALSE, cache=TRUE}
+twitterFile <- './final/en_US/en_US.twitter.txt'
+blogFile <- './final/en_US/en_US.blogs.txt'
+newsFile <- './final/en_US/en_US.news.txt'
+
+twitterData <- readLines(twitterFile)
+blogsData <- readLines(blogFile)
+newsData <- readLines(newsFile)
+```
+
+As we investigate structure of data all three datasets are consists of text dumps of blogs, news and twitter. Every line in data files represents a news article , a blog post or a tweet. 
+
+###ii. Numerical Information on Data
+
+To understand data more througly we will extract some numbers from our raw data. We have used string analyzing methods from **stringi** library. 
+
+Numerical information on data are; 
+
+**Twitter data:** Consists of 2.360.148 lines which all consists of 162.384.825 characters and a total of 30.218.125 words. While every tweet have at least 1 word, with average of 12.8 words per tweet. The tweet with most words is consists of 60 words. 
+
+**Blogs data:** Consists of 899.288 lines which all consists of 208.361.438 characters and a total of 38.154.238 words. While every blog post have at least 0 word, with average of 42.43 words per blog post. The blog post  with most words is consists of 6726 words. 
+
+**News data:** Consists of 77.259 lines which all consists of 15.683.765 characters and a total of 2.693.898 words. While every news article have at least 1 word, with average of 34.87 words per news article. The news article with most words is consists of 1123 words. 
+
+```{r dataInformation, warning=FALSE, cache=TRUE}
+twitterStats <- stri_stats_general(twitterData)
+blogsStats <- stri_stats_general(blogsData)
+newsStats <- stri_stats_general(newsData)
+
+twitterWords <- stri_count_words(twitterData)
+blogsWords <- stri_count_words(blogsData)
+newsWords <- stri_count_words(newsData)
+
+twitterStats
+blogsStats
+newsStats
+
+summary(twitterWords)
+summary(blogsWords)
+summary(newsWords)
+
+sum(twitterWords)
+sum(blogsWords)
+sum(newsWords)
+
+qplot(twitterWords, binwidth = 2)  + xlim(0,50) + ylab("Count") + xlab("Word Count per Tweet")
+qplot(blogsWords, binwidth = 2)  + xlim(0,250) + ylab("Count") + xlab("Word Count per Blog Posts")
+qplot(newsWords, binwidth = 2)  + xlim(0,250) + ylab("Count") + xlab("Word Count per News Article")
+```
+
+As seen in graphs most of the data is concentrating in shorter news articles, blog posts and tweets.
+
+##III. Sampling Data
+
+For fast development of applicaiton we have use a small subset of the data. We have used the **sample** method for selecting this subset from raw data. Approximately %0.1 of each data set (blog, news, tweet) used to create unified data.
+
+```{r sampleData, warning=FALSE, cache=TRUE}
+set.seed(54321)
+
+sampleDataTwitter <- sample(twitterData, 2360) 
+sampleDataBlogs <- sample(blogsData, 900) 
+sampleDataNews <- sample(newsData, 80) 
+
+data.raw <- c(sampleDataTwitter, sampleDataBlogs, sampleDataNews)
+```
+
+##IV. Processing Data
+
+###i. Bad Words
+
+For a better analsis we should process data before using in text prediction algorithm. Initially we should remove bad words from data. We have used [bad words list of shutterstock](https://github.com/shutterstock/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words/blob/master/en).
+
+```{r badWords, warning=FALSE, cache=TRUE}
+data.badwords <- readLines("badwords.txt")
+```
+
+###ii. Stop Words
+
+Another important point which can effect output of  our algorithm is [stopwords](http://en.wikipedia.org/wiki/Stop_words). **stopwords** method belong to **tm** library used to create vector of english stopwords.
+
+```{r stopWords, warning=FALSE, cache=TRUE}
+data.stopwords <- stopwords('english')
+```
+
+###iii. Cleaning Data
+
+In addition to **Bad Words** and **Stop Words** , raw data should be convert to **lower case**, **remove punctuations**, **remove numbers**, **remove multiple whitespaces**,  [stem](http://en.wikipedia.org/wiki/Stemming) document. For a tidier code we have implemented a method to handle all data cleaning. Converting to lower case, removing punctuation and removing multiple spaces 
+
+```{r dataCleaning, warning=FALSE, cache=TRUE}
+
+cleanData <- function (d)
+{
+  clean <- Corpus(VectorSource(d))
+  clean <- tm_map(clean, content_transformer(tolower))
+  clean <- tm_map(clean, removePunctuation)
+  clean <- tm_map(clean, removeNumbers)
+  clean <- tm_map(clean, stripWhitespace)
+  clean <- tm_map(clean, stemDocument)
+  clean <- tm_map(clean, removeWords, c(data.stopwords,data.badwords))
+  return (clean) 
+}
+
+data.clean <- cleanData(data.raw)
+```
+
+##V. Preparing Foundations of Algorithm
+
+### i. N-Grams
+
+[N-Gram](http://en.wikipedia.org/wiki/N-gram) is frequently present n item in same order (back to back) in a sequence. For example in DNA sequencing and computational linguistics areas n-grams are very useful parameters for deciding outcomes. N-grams based on length of sequences used together. In our algorithm we will be using unigrams (mainly for informational purposes), [bigrams](http://en.wikipedia.org/wiki/Bigram) and [trigrams](http://en.wikipedia.org/wiki/Trigram) for initial tests. Also applicability of **quadrigrams** will be tested for meaningful results. **NGramTokenizer** method of **RWeka** will be used to create n-grams. 
+
+### ii. Additional Improvements
+
+* Decision tree will be implemented for prediction algorithm usim created N-Grams.
+* Usability of [wordnet](https://wordnet.princeton.edu/) will be tested, if synonyms would be included to the prediction algorithm.
+ 
+ 
+
+
+
+
+
+
+
+
+### 
+### 
+### 
+### 
+### End Of Report
