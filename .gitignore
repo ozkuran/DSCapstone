@@ -223,3 +223,4 @@ pip-log.txt
 final/
 milestone_cache/
 milestone_files/
+.Rproj.user

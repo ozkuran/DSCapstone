@@ -39,11 +39,12 @@ qplot(newsWords, binwidth = 2)  + xlim(0,250) + ylab("Count") + xlab("Word Count
 
 set.seed(54321)
 
-sampleDataTwitter <- sample(twitterData, 23600) 
-sampleDataBlogs <- sample(blogsData, 9000) 
-sampleDataNews <- sample(newsData, 800) 
+sampleDataTwitter <- sample(twitterData, 50000) 
+sampleDataBlogs <- sample(blogsData, 25000) 
+sampleDataNews <- sample(newsData, 2000) 
 
 data.raw <- c(sampleDataTwitter, sampleDataBlogs, sampleDataNews)
+#data.raw <- c(twitterData, blogsData, newsData)
 data.badwords <- readLines("badwords.txt")
 data.stopwords <- stopwords('english')
 
@@ -54,8 +55,9 @@ cleanData <- function (d)
   clean <- tm_map(clean, removePunctuation)
   clean <- tm_map(clean, removeNumbers)
   clean <- tm_map(clean, stripWhitespace)
-  clean <- tm_map(clean, stemDocument)
-  clean <- tm_map(clean, removeWords, c(data.stopwords,data.badwords))
+#  clean <- tm_map(clean, stemDocument) steming causes errors
+#  clean <- tm_map(clean, removeWords, c(data.stopwords,data.badwords)) stop words could be meanful
+  clean <- tm_map(clean, removeWords, c(data.badwords))
   return (clean) 
 }
 
@@ -63,30 +65,31 @@ data.clean <- cleanData(data.raw)
 
 
 
-
-
-```{r nGrams, warning=FALSE, cache=TRUE}
-
-unigram <-function(x) RWeka::NGramTokenizer(x, RWeka::Weka_control(min=1, max=1))
-#bigram <- function(x) RWeka::NGramTokenizer(x, RWeka::Weka_control(min=2, max=2))
-#trigram <- function(x) RWeka::NGramTokenizer(x, RWeka::Weka_control(min=3, max=3))
-#quadrigram <- function(x) RWeka::NGramTokenizer(x, RWeka::Weka_control(min=4, max=4))
+#unigram <-function(x) RWeka::NGramTokenizer(x, RWeka::Weka_control(min=1, max=1))
+bigram <- function(x) RWeka::NGramTokenizer(x, RWeka::Weka_control(min=2, max=2))
+trigram <- function(x) RWeka::NGramTokenizer(x, RWeka::Weka_control(min=3, max=3))
+quadrigram <- function(x) RWeka::NGramTokenizer(x, RWeka::Weka_control(min=4, max=4))
 
 
 options(mc.cores=1)
-data.unigrams <- TermDocumentMatrix(data.clean , control=list(tokenize=unigram))
-#data.bigrams <- TermDocumentMatrix(data.clean , control=list(tokenize=bigram))
-#data.trigrams <- TermDocumentMatrix(data.clean , control=list(tokenize=trigram))
-#data.quadrigrams <- TermDocumentMatrix(data.clean , control=list(tokenize=quadrigram))
+#data.unigrams <- TermDocumentMatrix(data.clean , control=list(tokenize=unigram))
+data.bigrams <- TermDocumentMatrix(data.clean , control=list(tokenize=bigram))
+data.trigrams <- TermDocumentMatrix(data.clean , control=list(tokenize=trigram))
+data.quadrigrams <- TermDocumentMatrix(data.clean , control=list(tokenize=quadrigram))
 
-data.unigramsDF <- data.frame(table(data.unigrams))
-data.unigramsDF <- data.unigramsDF[order(-data.unigramsDF$Freq), ]
-head(data.unigramsDF,10)
+#wordlist <- unique(data.unigrams$dimnames$Terms)
+
+#save(data.unigrams, data.bigrams, data.trigrams, data.quadrigrams, wordlist, file = "nGram.RData")
+save(data.bigrams, data.trigrams, data.quadrigrams, file = "nGram.RData")
+
+
+#data.unigramsDF <- data.frame(table(data.unigrams))
+#data.unigramsDF <- data.unigramsDF[order(-data.unigramsDF$Freq), ]
+#head(data.unigramsDF,10)
 
 #data.bigramsRS <- rowSums(as.matrix(data.bigrams))
 #data.trigramsRS <- rowSums(as.matrix(data.trigrams))
 #data.quadrigramsRS <- rowSums(as.matrix(data.quadrigrams))
-```
 
 
 
